@@ -25,6 +25,16 @@ export function displayName(node: Node) {
   return node.meta?.name || node.static?.system?.system_host_name || node.uuid.slice(0, 8)
 }
 
+export function cpuLabel(node: Node) {
+  const cpu = node.static?.cpu
+  const cores = cpu?.physical_cores ?? cpu?.per_core?.length
+  const brand = cpu?.brand || cpu?.per_core?.[0]?.brand || ''
+  const parts: string[] = []
+  if (cores) parts.push(`${cores} 核`)
+  if (brand) parts.push(brand)
+  return parts.join(' · ')
+}
+
 export function osLabel(node: Node) {
   const s = node.static?.system
   if (!s) return ''

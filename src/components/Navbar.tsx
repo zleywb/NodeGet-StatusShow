@@ -1,6 +1,9 @@
+import { useEffect, useRef, useState } from 'react'
+import { Search as SearchIcon, X } from 'lucide-react'
 import { Search } from './Search'
 import { ViewToggle } from './ViewToggle'
 import { ThemeToggle } from './ThemeToggle'
+import { Button } from './ui/button'
 import type { View } from '../types'
 
 interface Props {
@@ -13,6 +16,13 @@ interface Props {
 }
 
 export function Navbar({ siteName, logo, query, onQuery, view, onView }: Props) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (searchOpen) inputRef.current?.focus()
+  }, [searchOpen])
+
   return (
     <header className="sticky top-0 z-10 border-b border-border/40">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 px-4 sm:px-6 py-3">
@@ -24,9 +34,31 @@ export function Navbar({ siteName, logo, query, onQuery, view, onView }: Props) 
           <span className="font-semibold tracking-wide truncate">{siteName}</span>
         </a>
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          <Search value={query} onChange={onQuery} />
+          <div className="hidden sm:block">
+            <Search value={query} onChange={onQuery} />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="sm:hidden"
+            onClick={() => setSearchOpen(o => !o)}
+            aria-label={searchOpen ? '关闭搜索' : '搜索'}
+          >
+            {searchOpen ? <X className="h-4 w-4" /> : <SearchIcon className="h-4 w-4" />}
+          </Button>
           <ViewToggle value={view} onChange={onView} />
           <ThemeToggle />
+        </div>
+      </div>
+
+      <div
+        aria-hidden={!searchOpen}
+        className={`sm:hidden overflow-hidden transition-all duration-150 ease-out ${
+          searchOpen ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="px-4 pt-1 pb-3">
+          <Search ref={inputRef} value={query} onChange={onQuery} className="w-full" />
         </div>
       </div>
     </header>

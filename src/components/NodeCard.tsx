@@ -5,7 +5,7 @@ import { Progress } from './ui/progress'
 import { Flag } from './Flag'
 import { StatusDot } from './StatusDot'
 import { bytes, pct, relativeAge, uptime } from '../utils/format'
-import { deriveUsage, displayName, distroLogo, osLabel, virtLabel } from '../utils/derive'
+import { cpuLabel, deriveUsage, displayName, distroLogo, osLabel, virtLabel } from '../utils/derive'
 import { cn, loadColor } from '../utils/cn'
 import type { Node } from '../types'
 import type { ReactNode } from 'react'
@@ -16,6 +16,7 @@ export function NodeCard({ node }: { node: Node }) {
   const os = osLabel(node)
   const logo = distroLogo(node)
   const virt = virtLabel(node)
+  const cpu = cpuLabel(node)
 
   return (
     <a href={`#${encodeURIComponent(node.uuid)}`} className="block">
@@ -43,7 +44,7 @@ export function NodeCard({ node }: { node: Node }) {
         )}
 
         <div className="flex flex-col gap-2.5">
-          <Metric label="CPU" value={u.cpu} />
+          <Metric label="CPU" value={u.cpu} sub={cpu || null} subTitle={cpu || undefined} />
           <Metric
             label="内存"
             value={u.mem}
@@ -94,19 +95,28 @@ function Metric({
   label,
   value,
   sub,
+  subTitle,
 }: {
   label: string
   value: number | undefined
   sub?: string | null
+  subTitle?: string
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-mono">{pct(value)}</span>
       </div>
       <Progress value={value} indicatorClassName={loadColor(value)} className="mt-1 h-1.5" />
-      {sub && <div className="font-mono text-[11px] text-muted-foreground mt-1">{sub}</div>}
+      {sub && (
+        <div
+          className="font-mono text-[11px] text-muted-foreground mt-1 truncate"
+          title={subTitle}
+        >
+          {sub}
+        </div>
+      )}
     </div>
   )
 }

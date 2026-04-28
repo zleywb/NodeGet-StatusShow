@@ -179,7 +179,11 @@ export function App() {
 
       <Footer text={config.theme_config?.footer} />
 
-      <NodeDetail node={selectedNode} onClose={() => setSelected(null)} />
+      <NodeDetail
+        node={selectedNode}
+        onClose={() => setSelected(null)}
+        showSource={(config.site_tokens?.length ?? 0) > 1}
+      />
     </div>
   )
 }

@@ -4,12 +4,11 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'rec
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
-import { Progress } from './ui/progress'
 import { Flag } from './Flag'
 import { StatusDot } from './StatusDot'
 import { bytes, pct, relativeAge, uptime } from '../utils/format'
 import { deriveUsage, displayName, distroLogo, osLabel, virtLabel } from '../utils/derive'
-import { loadColor } from '../utils/cn'
+import { strokeColor } from '../utils/cn'
 import type { HistorySample, Node } from '../types'
 
 const TOOLTIP_STYLE = {
@@ -19,7 +18,13 @@ const TOOLTIP_STYLE = {
   fontSize: 11,
 }
 
-export function NodeDetail({ node, onClose }: { node: Node | null; onClose: () => void }) {
+interface Props {
+  node: Node | null
+  onClose: () => void
+  showSource?: boolean
+}
+
+export function NodeDetail({ node, onClose, showSource }: Props) {
   useEffect(() => {
     if (!node) return
     const onKey = (e: KeyboardEvent) => {
@@ -45,7 +50,10 @@ export function NodeDetail({ node, onClose }: { node: Node | null; onClose: () =
   const logo = distroLogo(node)
   const swap =
     d?.total_swap && d.used_swap != null ? (d.used_swap / d.total_swap) * 100 : undefined
-  const loads = [d?.load_one, d?.load_five, d?.load_fifteen]
+  const loadAvg =
+    d?.load_one != null && d?.load_five != null && d?.load_fifteen != null
+      ? `${d.load_one.toFixed(2)} / ${d.load_five.toFixed(2)} / ${d.load_fifteen.toFixed(2)}`
+      : null
   const history = node.history || []
 
   return (
@@ -66,9 +74,11 @@ export function NodeDetail({ node, onClose }: { node: Node | null; onClose: () =
           </span>
           <div className="ml-auto flex flex-wrap gap-1.5 shrink-0">
             {node.meta?.region && <Badge variant="secondary">{node.meta.region}</Badge>}
-            <Badge variant="secondary" className="hidden sm:inline-flex">
-              {node.source}
-            </Badge>
+            {showSource && (
+              <Badge variant="secondary" className="hidden sm:inline-flex">
+                {node.source}
+              </Badge>
+            )}
             {virt && <Badge variant="secondary">{virt}</Badge>}
             {tags.map(t => (
               <Badge key={t} variant="outline">
@@ -81,20 +91,20 @@ export function NodeDetail({ node, onClose }: { node: Node | null; onClose: () =
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <Section title="资源">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            <BarRow label="CPU" value={u.cpu} />
-            <BarRow
+          <div className="flex flex-wrap justify-around gap-4 sm:gap-6">
+            <Ring label="CPU" value={u.cpu} sub={loadAvg ?? undefined} />
+            <Ring
               label="内存"
               value={u.mem}
-              sub={u.memTotal ? `${bytes(u.memUsed)} / ${bytes(u.memTotal)}` : null}
+              sub={u.memTotal ? `${bytes(u.memUsed)} / ${bytes(u.memTotal)}` : undefined}
             />
-            <BarRow
+            <Ring
               label="磁盘"
               value={u.disk}
-              sub={u.diskTotal ? `${bytes(u.diskUsed)} / ${bytes(u.diskTotal)}` : null}
+              sub={u.diskTotal ? `${bytes(u.diskUsed)} / ${bytes(u.diskTotal)}` : undefined}
             />
             {swap != null && (
-              <BarRow
+              <Ring
                 label="Swap"
                 value={swap}
                 sub={`${bytes(d?.used_swap)} / ${bytes(d?.total_swap)}`}
@@ -144,7 +154,7 @@ export function NodeDetail({ node, onClose }: { node: Node | null; onClose: () =
           <Section title="系统">
             <KV k="主机名" v={s?.system_host_name} />
             <KV k="操作系统" v={osLabel(node)} />
-            <KV k="内核" v={s?.system_kernel_version || s?.system_kernel} />
+            <KV k="内核" v={s?.system_kernel || s?.system_kernel_version} />
             <KV k="CPU 架构" v={s?.arch || s?.cpu_arch} />
             <KV k="虚拟化" v={virt} />
             <KV k="CPU 型号" v={cpu?.brand || cpu?.per_core?.[0]?.brand} />
@@ -165,14 +175,6 @@ export function NodeDetail({ node, onClose }: { node: Node | null; onClose: () =
             <KV k="累计发送" v={d?.total_transmitted != null ? bytes(d.total_transmitted) : null} />
             <KV k="磁盘读" v={d?.read_speed != null ? `${bytes(d.read_speed)}/s` : null} />
             <KV k="磁盘写" v={d?.write_speed != null ? `${bytes(d.write_speed)}/s` : null} />
-            <KV
-              k="负载平均"
-              v={
-                loads.every(Number.isFinite)
-                  ? loads.map(v => v!.toFixed(2)).join(' / ')
-                  : null
-              }
-            />
             <KV k="进程数" v={d?.process_count} />
             <KV
               k="TCP / UDP"
@@ -210,23 +212,43 @@ function KV({ k, v }: { k: string; v: ReactNode }) {
   )
 }
 
-function BarRow({
-  label,
-  value,
-  sub,
-}: {
-  label: string
-  value: number | undefined
-  sub?: string | null
-}) {
+function Ring({ label, value, sub }: { label: string; value?: number; sub?: string }) {
+  const r = 40
+  const c = 2 * Math.PI * r
+  const v = Math.max(0, Math.min(100, value ?? 0))
+  const hasValue = Number.isFinite(value)
+
   return (
-    <div>
-      <div className="flex justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono">{pct(value)}</span>
+    <div className="flex flex-col items-center gap-2 min-w-0">
+      <div className="relative w-24 h-24 sm:w-28 sm:h-28">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle
+            cx="50" cy="50" r={r}
+            fill="none" strokeWidth={8}
+            className="stroke-secondary"
+          />
+          {hasValue && (
+            <circle
+              cx="50" cy="50" r={r}
+              fill="none" strokeWidth={8}
+              className={strokeColor(value)}
+              strokeDasharray={c}
+              strokeDashoffset={c - (c * v) / 100}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dashoffset 400ms ease' }}
+            />
+          )}
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center text-base sm:text-lg font-semibold">
+          {pct(value)}
+        </div>
       </div>
-      <Progress value={value} indicatorClassName={loadColor(value)} className="mt-1.5 h-2" />
-      {sub && <div className="font-mono text-[11px] text-muted-foreground mt-1">{sub}</div>}
+      <div className="text-sm font-medium">{label}</div>
+      {sub && (
+        <div className="text-xs font-mono text-muted-foreground truncate max-w-full" title={sub}>
+          {sub}
+        </div>
+      )}
     </div>
   )
 }
