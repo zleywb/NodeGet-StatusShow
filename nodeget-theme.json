@@ -12,7 +12,7 @@
         "key": "site_name",
         "name": "站点标题",
         "type": "string",
-        "default": "NodeGet Status",
+        "default": "Zleywb NodeGet Status",
         "help": "输入站点标题"
       },
       {
